@@ -2,6 +2,9 @@
   
 # Tic Tac Toe Iced
 
+![Screenshot](assets/TicTacToeIced-4.png)
+
+
 </div>
 
 TicTacToeIced is a faithful implementation of the traditional Tic Tac Toe game. Developed as an open-source project, it is meticulously crafted to capture the essence of the game, offering an engaging experience for players. Written in Rust, a high-performance programming language known for its efficiency and safety, TicTacToeIced ensures optimal performance and robustness. The game is built using the Iced GUI library, which provides a user-friendly interface and facilitates smooth interactions, allowing players to enjoy seamless gameplay and intuitive controls.
