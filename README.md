@@ -42,6 +42,16 @@ cargo run --release
 My intention in doing this was to enhance my understanding of Rust and Iced. However, it does not aim to establish or endorse best practices. I welcome all constructive comments.  
 </div>
 
+## Features
+- [x] Two players game:
+  * It offers a platform for two players to battle each other, with the game ending once a definitive winner is crowned or a draw is settled. 
+- [ ] One player game:
+  * The one player is a player agains the computer but again, with the game ending once a definitive winner is crowned or a draw is settled.
+  - [ ] Level Easy
+  - [ ] Level Medium
+  - [ ] Leve Hard 
+
+
 
 ## License
 
