@@ -2,8 +2,22 @@
   
 # Tic Tac Toe Iced
 
-![Screenshot](assets/TicTacToeIced-4.png)
-
+<table>
+  <tr>
+    <td>
+      <img src="assets/TicTacToeIced-1.png">
+    </td>
+    <td>
+      <img src="assets/TicTacToeIced-2.png">
+    </td>
+    <td>
+      <img src="assets/TicTacToeIced-3.png">
+    </td>
+    <td>
+      <img src="assets/TicTacToeIced-4.png">
+    </td>
+  </tr>
+</table>
 
 </div>
 
