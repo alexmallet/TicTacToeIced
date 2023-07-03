@@ -136,7 +136,6 @@ impl Application for TicTacToe {
                 self.cell_r3_c3 = "".to_string();
                 self.message = format!("Player {} turn.", self.player_id.to_string());
                 self.game_over = false;
-                println!("{:?}", self);
                 
             },
             Message::ButtonPress(1) => {
@@ -151,7 +150,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(2) => {
                 if self.cell_r1_c2 != "X".to_string() && self.cell_r1_c2 != "O".to_string() && !self.game_over {
@@ -165,7 +163,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(3) => {
                 if self.cell_r1_c3 != "X".to_string() && self.cell_r1_c3 != "O".to_string() && !self.game_over {
@@ -179,7 +176,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(4) => {
                 if self.cell_r2_c1 != "X".to_string() && self.cell_r2_c1 != "O".to_string() && !self.game_over {
@@ -193,7 +189,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(5) => {
                 if self.cell_r2_c2 != "X".to_string() && self.cell_r2_c2 != "O".to_string() && !self.game_over {
@@ -207,7 +202,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(6) => {
                 if self.cell_r2_c3 != "X".to_string() && self.cell_r2_c3 != "O".to_string() && !self.game_over {
@@ -221,7 +215,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(7) => {
                 if self.cell_r3_c1 != "X".to_string() && self.cell_r3_c1 != "O".to_string() && !self.game_over {
@@ -235,7 +228,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(8) => {
                 if self.cell_r3_c2 != "X".to_string() && self.cell_r3_c2 != "O".to_string() && !self.game_over {
@@ -249,7 +241,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             Message::ButtonPress(9) => {
                 if self.cell_r3_c3 != "X".to_string() && self.cell_r3_c3 != "O".to_string() && !self.game_over {
@@ -263,7 +254,6 @@ impl Application for TicTacToe {
                     
                 }
                 self.game_over = check_for_winner(self);
-                println!("{:?}", self);
             },
             _ => {}
         }
