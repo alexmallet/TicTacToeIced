@@ -1,408 +1,233 @@
-use iced::widget::{button, container, row, text, column};
+use iced::widget::{container, text, Text};
 use iced::{executor, Application, Command, Length, Settings};
+use widget::{Row, Column, Renderer, Button, Container};
 
 use self::theme::Theme;
 use self::widget::Element;
 
+const BUTTON_SIZE: u16 = 200;
+
 fn main() {
-    let mut settings = Settings::default();
-    settings.window.resizable = true;
-    settings.window.size = (1200,1200);
+    let settings = Settings {
+        window: iced::window::Settings {
+            resizable: true,
+            size: (1200, 1200),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
     TicTacToe::run(settings).unwrap();
 }
 
-#[derive(Debug, Clone)]
-enum Message {
-    ButtonPress(u8),
-    Restart,
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Player {
+    X,
+    O,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum CellState {
+    Empty,
+    Occupied(Player),
+}
+
+#[derive(Debug)]
 struct TicTacToe {
-    player_id: i32,
-    moves_count: i32,
-    cell_r1_c1: String,
-    cell_r1_c2: String,
-    cell_r1_c3: String,
-    cell_r2_c1: String,
-    cell_r2_c2: String,
-    cell_r2_c3: String,
-    cell_r3_c1: String,
-    cell_r3_c2: String,
-    cell_r3_c3: String,
+    player: Player,
+    moves_count: usize,
+    cells: [[CellState; 3]; 3],
     message: String,
     game_over: bool,
 }
 
-const BUTTON_SIZE: u16 = 200;
-
-fn validate_winner (content: String) -> bool {
-    if content == "XXX".to_string() || content == "OOO".to_string() {
-        return  true;
-    } 
-
-    false
+impl Default for TicTacToe {
+    fn default() -> Self {
+        TicTacToe {
+            player: Player::X,
+            moves_count: 0,
+            cells: [[CellState::Empty; 3]; 3],
+            message: "Player X's turn.".to_string(),
+            game_over: false,
+        }
+    }
 }
 
-fn check_for_winner (game: &mut TicTacToe) -> bool {
-    if game.game_over {
-        return  true;
+impl TicTacToe {
+    fn validate_winner(cells: &[[CellState; 3]; 3]) -> bool {
+        let winning_combinations = [
+            // Rows
+            [(0, 0), (0, 1), (0, 2)],
+            [(1, 0), (1, 1), (1, 2)],
+            [(2, 0), (2, 1), (2, 2)],
+            // Columns
+            [(0, 0), (1, 0), (2, 0)],
+            [(0, 1), (1, 1), (2, 1)],
+            [(0, 2), (1, 2), (2, 2)],
+            // Diagonals
+            [(0, 0), (1, 1), (2, 2)],
+            [(0, 2), (1, 1), (2, 0)],
+        ];
+
+        for combination in &winning_combinations {
+            let (row1, col1) = combination[0];
+            let (row2, col2) = combination[1];
+            let (row3, col3) = combination[2];
+
+            if let CellState::Occupied(player) = cells[row1][col1] {
+                if cells[row2][col2] == CellState::Occupied(player)
+                    && cells[row3][col3] == CellState::Occupied(player)
+                {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
-    let mut winner = 1;
-    if game.player_id == 1 {
-        winner = 2;
-    }
-    game.message = format!("Player {} is the winner!!!!", winner.to_string());
+    fn check_for_winner(&mut self) -> bool {
+        if self.game_over {
+            return true;
+        }
 
-    // Checking the rows
-    let row1: String =format!("{}{}{}", game.cell_r1_c1, game.cell_r1_c2 , game.cell_r1_c3);
-    let row2: String =format!("{}{}{}", game.cell_r2_c1, game.cell_r2_c2 , game.cell_r2_c3);
-    let row3: String =format!("{}{}{}", game.cell_r3_c1, game.cell_r3_c2 , game.cell_r3_c3);
-    if validate_winner(row1) || validate_winner(row2) || validate_winner(row3) {
-        return  true;
-    } 
+        if TicTacToe::validate_winner(&self.cells) {
+            self.message = format!("Player {} is the winner!!!!", match self.player {
+                Player::X => "O",
+                Player::O => "X",
+            });
     
-    // Checking the cols
-    let col1: String =format!("{}{}{}", game.cell_r1_c1, game.cell_r2_c1 , game.cell_r3_c1);
-    let col2: String =format!("{}{}{}", game.cell_r1_c2, game.cell_r2_c2 , game.cell_r3_c2);
-    let col3: String =format!("{}{}{}", game.cell_r1_c3, game.cell_r2_c3 , game.cell_r3_c3);
-    if validate_winner(col1) || validate_winner(col2) || validate_winner(col3) {
-        return  true;
-    } 
+            self.game_over = true;
+            return true;
+        }
 
-    // Checking the across
-    let across1: String =format!("{}{}{}", game.cell_r1_c1, game.cell_r2_c2 , game.cell_r3_c3);
-    let across2: String =format!("{}{}{}", game.cell_r1_c3, game.cell_r2_c2 , game.cell_r3_c1);
-    if validate_winner(across1) || validate_winner(across2) {
-        return  true;
-    } 
-
-    if game.moves_count == 9 {
-        game.message = "Players, we have a draw.".to_string();
-        return true;
-
-    } else {
-        game.message = format!("Player {} turn.", game.player_id.to_string());
+        if self.moves_count == 9 {
+            self.message = "Players, we have a draw.".to_string();
+            self.game_over = true;
+            return true;
+        }
+        self.message = format!("Player {}'s turn.", match self.player {
+            Player::X => "X",
+            Player::O => "O",
+        });
+        false
     }
+}
 
-    false
+#[derive(Debug, Clone, Copy)]
+enum Message {
+    ButtonPress(usize),
+    Restart,
 }
 
 impl Application for TicTacToe {
     type Executor = executor::Default;
     type Message = Message;
-    type Theme = Theme;
     type Flags = ();
+    type Theme = Theme;
 
     fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
-        (
-            TicTacToe {
-                player_id: 1,
-                moves_count: 0,
-                cell_r1_c1: "".to_string(),
-                cell_r1_c2: "".to_string(),
-                cell_r1_c3: "".to_string(),
-                cell_r2_c1: "".to_string(),
-                cell_r2_c2: "".to_string(),
-                cell_r2_c3: "".to_string(),
-                cell_r3_c1: "".to_string(),
-                cell_r3_c2: "".to_string(),
-                cell_r3_c3: "".to_string(),
-                message: format!("Player {} turn.", "1"),
-                game_over: false,
-            },
-            Command::none())
+        (TicTacToe::default(), Command::none())
     }
 
     fn title(&self) -> String {
-        "Custom Theme".into()
+        "Tic Tac Toe".into()
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        self.moves_count += 1;
         match message {
             Message::Restart => {
-                self.player_id = 1;
-                self.moves_count = 0;
-                self.cell_r1_c1 = "".to_string();
-                self.cell_r1_c2 = "".to_string();
-                self.cell_r1_c3 = "".to_string();
-                self.cell_r2_c1 = "".to_string();
-                self.cell_r2_c2 = "".to_string();
-                self.cell_r2_c3 = "".to_string();
-                self.cell_r3_c1 = "".to_string();
-                self.cell_r3_c2 = "".to_string();
-                self.cell_r3_c3 = "".to_string();
-                self.message = format!("Player {} turn.", self.player_id.to_string());
-                self.game_over = false;
-                
-            },
-            Message::ButtonPress(1) => {
-                if self.cell_r1_c1 != "X".to_string() && self.cell_r1_c1 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r1_c1 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r1_c1 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
+                *self = TicTacToe::default();
+            }
+            Message::ButtonPress(index) => {
+                let row = (index - 1) / 3;
+                let col = (index - 1) % 3;
+
+                if self.cells[row][col] == CellState::Empty && !self.game_over {
+                    let cell_state = match self.player {
+                        Player::X => CellState::Occupied(Player::X),
+                        Player::O => CellState::Occupied(Player::O),
+                    };
+                    self.cells[row][col] = cell_state;
+                    self.player = match self.player {
+                        Player::X => Player::O,
+                        Player::O => Player::X,
+                    };
+                    self.moves_count += 1;
+
+                    self.check_for_winner();
                 }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(2) => {
-                if self.cell_r1_c2 != "X".to_string() && self.cell_r1_c2 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r1_c2 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r1_c2 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(3) => {
-                if self.cell_r1_c3 != "X".to_string() && self.cell_r1_c3 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r1_c3 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r1_c3 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(4) => {
-                if self.cell_r2_c1 != "X".to_string() && self.cell_r2_c1 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r2_c1 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r2_c1 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(5) => {
-                if self.cell_r2_c2 != "X".to_string() && self.cell_r2_c2 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r2_c2 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r2_c2 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(6) => {
-                if self.cell_r2_c3 != "X".to_string() && self.cell_r2_c3 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r2_c3 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r2_c3 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(7) => {
-                if self.cell_r3_c1 != "X".to_string() && self.cell_r3_c1 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r3_c1 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r3_c1 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(8) => {
-                if self.cell_r3_c2 != "X".to_string() && self.cell_r3_c2 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r3_c2 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r3_c2 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            Message::ButtonPress(9) => {
-                if self.cell_r3_c3 != "X".to_string() && self.cell_r3_c3 != "O".to_string() && !self.game_over {
-                    if self.player_id == 1 {
-                        self.cell_r3_c3 = "X".to_string();
-                        self.player_id = 2;
-                    } else {
-                        self.cell_r3_c3 = "O".to_string();
-                        self.player_id = 1;
-                    }
-                    
-                }
-                self.game_over = check_for_winner(self);
-            },
-            _ => {}
+            }
         }
+
         Command::none()
     }
 
     fn view(&self) -> Element<Message> {
-        container(
-            container(
-                column![
-                    container(
-                        row![
-                            text(self.message.clone())
-                            .width(600)
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(50)
-                    ]
-                        .align_items(iced::Alignment::Center)
-                        
-                    )
-                    .padding(20)
-                    .style(theme::Container::Bordered),
-                    row![
-                        button(
-                            text(self.cell_r1_c1.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(1)),
-                        button(text(self.cell_r1_c2.clone())                            
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(2)),
-                        button(text(self.cell_r1_c3.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(3))
-                    ]
-                        .spacing(10)
-                        .padding(10),
-                    row![
-                        button(text(self.cell_r2_c1.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(4)),
-                        button(text(self.cell_r2_c2.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(5)),
-                        button(text(self.cell_r2_c3.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .style(theme::Button::Primary)
-                            .on_press(Message::ButtonPress(6))
-                    ]
-                        .spacing(10)
-                        .padding(10),
-                    row![
-                        button(text(self.cell_r3_c1.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(7)),
-                        button(text(self.cell_r3_c2.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .style(theme::Button::Primary)
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::ButtonPress(8)),
-                        button(text(self.cell_r3_c3.clone())
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-                            .size(200)
-                        )
-                            .width(BUTTON_SIZE)
-                            .height(BUTTON_SIZE)
-                            .style(theme::Button::Primary)
-                            .on_press(Message::ButtonPress(9))
-                    ]
-                        .spacing(10)
-                        .padding(10),
-                    row![
-                        button(text("Restart")
-                            .size(50)
-                            .horizontal_alignment(iced::alignment::Horizontal::Center)
-                            .vertical_alignment(iced::alignment::Vertical::Center)
-
-                        )
-                            .style(theme::Button::Secondary)                            
-                            .width(620)
-                            .height(BUTTON_SIZE)
-                            .on_press(Message::Restart),
-                    ]
-                        .spacing(10)
-                        .padding(10),
-
-                ],              
+        let board_button = |state: &CellState, index: usize| -> Button<'_, Message, Renderer> {
+            let bt_text = match state {
+                CellState::Occupied(Player::X) => "X",
+                CellState::Occupied(Player::O) => "O",
+                _ => "",
+            };
+    
+            Button::new(
+                Text::new(bt_text)
+                    .horizontal_alignment(iced::alignment::Horizontal::Center)
+                    .vertical_alignment(iced::alignment::Vertical::Center)
+                    .size(BUTTON_SIZE),
             )
-            .padding(20)
-            .style(theme::Container::Default),
+            .width(BUTTON_SIZE)
+            .height(BUTTON_SIZE)
+            .on_press(Message::ButtonPress(index))
+        };
+    
+        let restart_button = Button::new(
+            Text::new("Restart")
+                .horizontal_alignment(iced::alignment::Horizontal::Center)
+                .vertical_alignment(iced::alignment::Vertical::Center)
+                .size(BUTTON_SIZE),
         )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y()
-        .into()
+        .width(620)
+        .height(BUTTON_SIZE)
+        .on_press(Message::Restart);
+    
+        let message = Text::new(&self.message)
+            .horizontal_alignment(iced::alignment::Horizontal::Center)
+            .vertical_alignment(iced::alignment::Vertical::Center)
+            .size(30);
+    
+        let cells: Vec<Element<Message>> = self.cells.iter().enumerate().map(|(row, row_cells)| {
+            let row_buttons: Vec<Element<Message>> = row_cells.iter().enumerate().map(|(col, cell_state)| {
+                let button = board_button(cell_state, row * 3 + col + 1);
+                button.into() // Convert Button to Element
+            }).collect();
+    
+            Row::new()
+                .spacing(10)
+                .align_items(iced::Alignment::Center)
+                .push(Row::with_children(row_buttons)) // Wrap the buttons in another Row
+                .into() // Convert Row to Element
+        }).collect();
+    
+        let content = Column::new()
+            .spacing(20)
+            .align_items(iced::Alignment::Center)
+            .push(message)
+            .push(Column::with_children(cells)) // Convert Vec<Element> to a single widget element
+            .push(restart_button);
+    
+        Container::new(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x()
+            .center_y()
+            .into()
     }
+    
+
 }
 
-// Always import widget types from this module since it
-// uses our custom theme instead of the built-in iced::Theme.
-// Otherwise you will get compilation errors since iced::Element
-// expects use of iced::Theme by default.
 mod widget {
     #![allow(dead_code)]
     use crate::theme::Theme;
@@ -410,7 +235,9 @@ mod widget {
     pub type Renderer = iced::Renderer<Theme>;
     pub type Element<'a, Message> = iced::Element<'a, Message, Renderer>;
     pub type Container<'a, Message> = iced::widget::Container<'a, Message, Renderer>;
-    pub type Button<'a, Message> = iced::widget::Button<'a, Message, Renderer>;
+    pub type Button<'a, Message, Renderer> = iced::widget::Button<'a, Message, Renderer>;
+    pub type Column<'a, Message, Renderer> = iced::widget::Column<'a, Message, Renderer>;
+    pub type Row<'a, Message, Renderer> = iced::widget::Row<'a, Message, Renderer>;
 }
 
 mod theme {
