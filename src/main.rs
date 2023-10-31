@@ -1,4 +1,4 @@
-use iced::widget::{container, text, Text};
+use iced::widget::Text;
 use iced::{executor, Application, Command, Length, Settings};
 use widget::{Row, Column, Renderer, Button, Container};
 
@@ -6,6 +6,7 @@ use self::theme::Theme;
 use self::widget::Element;
 
 const BUTTON_SIZE: u16 = 200;
+const TEXT_SIZE: u16 = ((BUTTON_SIZE as f64) * 0.8) as u16;
 
 fn main() {
     let settings = Settings {
@@ -175,7 +176,7 @@ impl Application for TicTacToe {
                 Text::new(bt_text)
                     .horizontal_alignment(iced::alignment::Horizontal::Center)
                     .vertical_alignment(iced::alignment::Vertical::Center)
-                    .size(BUTTON_SIZE),
+                    .size(TEXT_SIZE),
             )
             .width(BUTTON_SIZE)
             .height(BUTTON_SIZE)
@@ -186,7 +187,7 @@ impl Application for TicTacToe {
             Text::new("Restart")
                 .horizontal_alignment(iced::alignment::Horizontal::Center)
                 .vertical_alignment(iced::alignment::Vertical::Center)
-                .size(BUTTON_SIZE),
+                .size(TEXT_SIZE),
         )
         .width(620)
         .height(BUTTON_SIZE)
@@ -242,7 +243,7 @@ mod widget {
 
 mod theme {
     use iced::widget::{button, container, text};
-    use iced::{application, color};
+    use iced::{application, color, Background, BorderRadius, Color};
 
     #[derive(Debug, Clone, Copy, Default)]
     pub struct Theme;
@@ -284,7 +285,7 @@ mod theme {
                 Container::Bordered => container::Appearance {
                     border_color: color!(0x45, 0x85, 0x88),
                     border_width: 1.0,
-                    border_radius: 4.0,
+                    border_radius: BorderRadius::from(4.0),
                     ..Default::default()
                 },
             }
@@ -301,17 +302,18 @@ mod theme {
     impl button::StyleSheet for Theme {
         type Style = Button;
 
+
         fn active(&self, style: &Self::Style) -> button::Appearance {
             match style {
                 Button::Primary => button::Appearance {
-                    background: color!(0x28, 0x28, 0x28).into(),
-                    border_radius: 4.0,
+                    //background: Some(Background::from(Color::from_rgb(40.0, 40.0, 40.0))),
+                    border_radius: BorderRadius::from(4.0),
                     border_width: 1.0,
                     border_color: color!(0x45, 0x85, 0x88),
                     ..Default::default()
                 },
                 Button::Secondary => button::Appearance {
-                    background: color!(0x3c, 0x38, 0x36).into(),
+                    background: Some(Background::from(Color::from_rgb(60.0, 56.0, 54.0))),
                     ..Default::default()
                 },
             }
