@@ -306,7 +306,6 @@ mod theme {
         fn active(&self, style: &Self::Style) -> button::Appearance {
             match style {
                 Button::Primary => button::Appearance {
-                    //background: Some(Background::from(Color::from_rgb(40.0, 40.0, 40.0))),
                     border_radius: BorderRadius::from(4.0),
                     border_width: 1.0,
                     border_color: color!(0x45, 0x85, 0x88),
