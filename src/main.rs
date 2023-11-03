@@ -28,34 +28,59 @@ enum Player {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum CellState {
+enum BoardState {
     Empty,
     Occupied(Player),
 }
 
 #[derive(Debug)]
+struct  Board {
+    state: [[BoardState; 3]; 3],
+    background: [theme::Button; 9],
+    color: [theme::Text; 9]
+}
+
+impl Default for Board {
+    fn default() -> Self {
+        Board { 
+            state: [[BoardState::Empty; 3]; 3], 
+            background: [theme::Button::Primary; 9], 
+            color: [theme::Text::Primary; 9] 
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Game {
+    Playing,
+    Draw,
+    Winner
+}
+
+
+#[derive(Debug)]
 struct TicTacToe {
     player: Player,
-    moves_count: usize,
-    cells: [[CellState; 3]; 3],
+    play_count: usize,
+    board: Board,
     message: String,
-    game_over: bool,
+    game: Game,
 }
 
 impl Default for TicTacToe {
     fn default() -> Self {
         TicTacToe {
             player: Player::X,
-            moves_count: 0,
-            cells: [[CellState::Empty; 3]; 3],
+            play_count: 0,
+            board: Board::default(),
             message: "Player X's turn.".to_string(),
-            game_over: false,
+            game: Game::Playing,
         }
     }
 }
 
 impl TicTacToe {
-    fn validate_winner(cells: &[[CellState; 3]; 3]) -> bool {
+    fn validate_winner(board: &[[BoardState; 3]; 3]) -> bool {
         let winning_combinations = [
             // Rows
             [(0, 0), (0, 1), (0, 2)],
@@ -75,9 +100,9 @@ impl TicTacToe {
             let (row2, col2) = combination[1];
             let (row3, col3) = combination[2];
 
-            if let CellState::Occupied(player) = cells[row1][col1] {
-                if cells[row2][col2] == CellState::Occupied(player)
-                    && cells[row3][col3] == CellState::Occupied(player)
+            if let BoardState::Occupied(player) = board[row1][col1] {
+                if board[row2][col2] == BoardState::Occupied(player)
+                    && board[row3][col3] == BoardState::Occupied(player)
                 {
                     return true;
                 }
@@ -88,29 +113,32 @@ impl TicTacToe {
     }
 
     fn check_for_winner(&mut self) -> bool {
-        if self.game_over {
-            return true;
-        }
 
-        if TicTacToe::validate_winner(&self.cells) {
+        if Game::Draw == self.game || Game::Winner == self.game {
+            return true;
+        }         
+
+        if TicTacToe::validate_winner(&self.board.state) {
             self.message = format!("Player {} is the winner!!!!", match self.player {
                 Player::X => "O",
                 Player::O => "X",
             });
     
-            self.game_over = true;
+            self.game = Game::Winner;
             return true;
         }
 
-        if self.moves_count == 9 {
+        if self.play_count == 9 {
             self.message = "Players, we have a draw.".to_string();
-            self.game_over = true;
+            self.game = Game::Draw;
             return true;
         }
+
         self.message = format!("Player {}'s turn.", match self.player {
             Player::X => "X",
             Player::O => "O",
         });
+
         false
     }
 }
@@ -144,17 +172,23 @@ impl Application for TicTacToe {
                 let row = (index - 1) / 3;
                 let col = (index - 1) % 3;
 
-                if self.cells[row][col] == CellState::Empty && !self.game_over {
+                if self.board.state[row][col] == BoardState::Empty && Game::Playing == self.game {
                     let cell_state = match self.player {
-                        Player::X => CellState::Occupied(Player::X),
-                        Player::O => CellState::Occupied(Player::O),
+                        Player::X => { 
+                            self.board.color[index-1] = theme::Text::PlayerX;
+                            BoardState::Occupied(Player::X) 
+                        },
+                        Player::O => { 
+                            self.board.color[index-1] = theme::Text::PlayerO;
+                            BoardState::Occupied(Player::O) 
+                        },
                     };
-                    self.cells[row][col] = cell_state;
+                    self.board.state[row][col] = cell_state;
                     self.player = match self.player {
                         Player::X => Player::O,
                         Player::O => Player::X,
                     };
-                    self.moves_count += 1;
+                    self.play_count += 1;
 
                     self.check_for_winner();
                 }
@@ -165,10 +199,10 @@ impl Application for TicTacToe {
     }
 
     fn view(&self) -> Element<Message> {
-        let board_button = |state: &CellState, index: usize| -> Button<'_, Message, Renderer> {
+        let board_button = |state: &BoardState, index: usize| -> Button<'_, Message, Renderer> {
             let bt_text = match state {
-                CellState::Occupied(Player::X) => "X",
-                CellState::Occupied(Player::O) => "O",
+                BoardState::Occupied(Player::X) => "X",
+                BoardState::Occupied(Player::O) => "O",
                 _ => "",
             };
     
@@ -176,10 +210,12 @@ impl Application for TicTacToe {
                 Text::new(bt_text)
                     .horizontal_alignment(iced::alignment::Horizontal::Center)
                     .vertical_alignment(iced::alignment::Vertical::Center)
-                    .size(TEXT_SIZE),
+                    .size(TEXT_SIZE)
+                    .style(self.board.color[index-1]),
             )
             .width(BUTTON_SIZE)
             .height(BUTTON_SIZE)
+            .style(self.board.background[index-1])
             .on_press(Message::ButtonPress(index))
         };
     
@@ -198,8 +234,8 @@ impl Application for TicTacToe {
             .vertical_alignment(iced::alignment::Vertical::Center)
             .size(30);
     
-        let cells: Vec<Element<Message>> = self.cells.iter().enumerate().map(|(row, row_cells)| {
-            let row_buttons: Vec<Element<Message>> = row_cells.iter().enumerate().map(|(col, cell_state)| {
+        let board: Vec<Element<Message>> = self.board.state.iter().enumerate().map(|(row, row_board)| {
+            let row_buttons: Vec<Element<Message>> = row_board.iter().enumerate().map(|(col, cell_state)| {
                 let button = board_button(cell_state, row * 3 + col + 1);
                 button.into() // Convert Button to Element
             }).collect();
@@ -215,7 +251,7 @@ impl Application for TicTacToe {
             .spacing(20)
             .align_items(iced::Alignment::Center)
             .push(message)
-            .push(Column::with_children(cells)) // Convert Vec<Element> to a single widget element
+            .push(Column::with_children(board)) // Convert Vec<Element> to a single widget element
             .push(restart_button);
     
         Container::new(content)
@@ -259,12 +295,25 @@ mod theme {
         }
     }
 
-    impl text::StyleSheet for Theme {
-        type Style = ();
+    #[derive(Debug, Clone, Copy, Default)]
+    pub enum Text {
+        #[default]
+        Primary,
+        PlayerX,
+        PlayerO,
+        #[allow(dead_code)]
+        Winner
+    }
 
-        fn appearance(&self, _style: Self::Style) -> text::Appearance {
-            text::Appearance {
-                color: color!(0xeb, 0xdb, 0xb2).into(),
+    impl text::StyleSheet for Theme {
+        type Style = Text;
+
+        fn appearance(&self, style: Self::Style) -> text::Appearance {
+            match style {
+                Text::Primary => text::Appearance {color: color!(0xeb, 0xdb, 0xb2).into()},
+                Text::PlayerX => text::Appearance {color: Some(Color::from_rgb(250.0, 0.0, 0.0))},
+                Text::PlayerO => text::Appearance {color: Some(Color::from_rgb(0.0, 51.0, 0.0))},
+                Text::Winner => text::Appearance {color: color!(0xeb, 0xdb, 0xb2).into()},            
             }
         }
     }
@@ -273,6 +322,7 @@ mod theme {
     pub enum Container {
         #[default]
         Default,
+        #[allow(dead_code)]
         Bordered,
     }
 
@@ -296,13 +346,12 @@ mod theme {
     pub enum Button {
         #[default]
         Primary,
+        #[allow(dead_code)]
         Secondary,
     }
 
     impl button::StyleSheet for Theme {
         type Style = Button;
-
-
         fn active(&self, style: &Self::Style) -> button::Appearance {
             match style {
                 Button::Primary => button::Appearance {
@@ -312,7 +361,28 @@ mod theme {
                     ..Default::default()
                 },
                 Button::Secondary => button::Appearance {
+                    border_radius: BorderRadius::from(4.0),
+                    border_width: 1.0,
+                    border_color: color!(0x45, 0x85, 0x88),
                     background: Some(Background::from(Color::from_rgb(60.0, 56.0, 54.0))),
+                    ..Default::default()
+                },
+            }
+        }
+        fn pressed(&self, style: &Self::Style) -> button::Appearance {
+            match style {
+                Button::Primary => button::Appearance {
+                    background: Some(Background::from(Color::from_rgb(255.0, 255.0, 255.0))),
+                    border_radius: BorderRadius::from(4.0),
+                    border_width: 1.0,
+                    border_color: color!(0x45, 0x85, 0x88),
+                    ..Default::default()
+                },
+                Button::Secondary => button::Appearance {
+                    background: Some(Background::from(Color::from_rgb(60.0, 56.0, 54.0))),
+                    border_radius: BorderRadius::from(4.0),
+                    border_width: 1.0,
+                    border_color: color!(0x45, 0x85, 0x88),
                     ..Default::default()
                 },
             }
