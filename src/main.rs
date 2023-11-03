@@ -112,10 +112,10 @@ impl TicTacToe {
         false
     }
 
-    fn check_for_winner(&mut self) -> bool {
+    fn check_for_winner(&mut self) {
 
         if Game::Draw == self.game || Game::Winner == self.game {
-            return true;
+            return
         }         
 
         if TicTacToe::validate_winner(&self.board.state) {
@@ -125,13 +125,13 @@ impl TicTacToe {
             });
     
             self.game = Game::Winner;
-            return true;
+            return 
         }
 
         if self.play_count == 9 {
             self.message = "Players, we have a draw.".to_string();
             self.game = Game::Draw;
-            return true;
+            return 
         }
 
         self.message = format!("Player {}'s turn.", match self.player {
@@ -139,7 +139,7 @@ impl TicTacToe {
             Player::O => "O",
         });
 
-        false
+        
     }
 }
 
