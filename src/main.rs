@@ -1,6 +1,6 @@
-use iced::widget::Text;
+use iced::widget::{Text, row};
 use iced::{executor, Application, Command, Length, Settings};
-use widget::{Row, Column, Renderer, Button, Container};
+use widget::{Row, Column, Renderer, Button, Container, Radio};
 
 use self::theme::Theme;
 use self::widget::Element;
@@ -25,128 +25,293 @@ fn main() {
 enum Player {
     X,
     O,
+    Human,
+    AI,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum BoardState {
+enum CellState {
     Empty,
     Occupied(Player),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+struct  Cell {
+    state: CellState,
+    background: theme::Background,
+    color: theme::Color
+}
+
+impl Default for Cell {
+    fn default() -> Self {
+        Cell { 
+            state: CellState::Empty, 
+            background: theme::Background::default(),
+            color: theme::Color::default() 
+        }
+    }
+}
+
+
+#[derive(Debug, Clone)]
 struct  Board {
-    state: [[BoardState; 3]; 3],
-    background: [theme::Button; 9],
-    color: [theme::Text; 9]
+    cells: [Cell; 9],
 }
 
 impl Default for Board {
     fn default() -> Self {
         Board { 
-            state: [[BoardState::Empty; 3]; 3], 
-            background: [theme::Button::Primary; 9], 
-            color: [theme::Text::Primary; 9] 
+            cells: [Cell::default(); 9], 
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Game {
+impl Board {
+    fn make_move(&mut self, position: usize, player: Player) {
+        self.cells[position].state = CellState::Occupied(player);
+    }
+
+    fn available_moves(&self) -> Vec<usize> {
+        self.cells
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &cell)| if cell.state == CellState::Empty { Some(i) } else { None })
+            .collect()
+    }
+
+    fn check_win(&self, player: Player) -> bool {
+        let win_combos = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [6, 4, 2],
+        ];
+
+        win_combos
+            .iter()
+            .any(|&combo| combo.iter().all(|&pos| self.cells[pos].state == CellState::Occupied(player)))
+    }
+
+
+    
+}
+
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+enum Mode {
+    OnePlayer,
+    #[default]   
+    TwoPlayers,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+enum Level {
+    #[default]
+    Easy,
+    Medium,
+    Hard,
+}
+
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
+enum Status {
+    #[default]
     Playing,
     Draw,
     Winner
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+struct  Game {
+    mode: Mode,
+    level: Option<Level>,
+    status: Status,
+    playing_count: usize
+}
+
+impl Default for Game {
+    fn default() -> Self {
+        Self { 
+            mode: Default::default(), 
+            level: None, 
+            status: Default::default(), 
+            playing_count: Default::default() 
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy)]
+struct Move {
+    score: i32,
+    index: usize,
+}
+
+
+#[derive(Debug, Clone)]
 struct TicTacToe {
-    player: Player,
-    play_count: usize,
     board: Board,
-    message: String,
     game: Game,
+    message: String,
+    player: Player,
 }
 
 impl Default for TicTacToe {
     fn default() -> Self {
         TicTacToe {
-            player: Player::X,
-            play_count: 0,
             board: Board::default(),
-            message: "Player X's turn.".to_string(),
-            game: Game::Playing,
+            game: Game::default(),
+            message: "X turn.".to_string(),
+            player: Player::X,
         }
     }
 }
 
-impl TicTacToe {
-    fn validate_winner(board: &[[BoardState; 3]; 3]) -> bool {
-        let winning_combinations = [
-            // Rows
-            [(0, 0), (0, 1), (0, 2)],
-            [(1, 0), (1, 1), (1, 2)],
-            [(2, 0), (2, 1), (2, 2)],
-            // Columns
-            [(0, 0), (1, 0), (2, 0)],
-            [(0, 1), (1, 1), (2, 1)],
-            [(0, 2), (1, 2), (2, 2)],
-            // Diagonals
-            [(0, 0), (1, 1), (2, 2)],
-            [(0, 2), (1, 1), (2, 0)],
-        ];
-
-        for combination in &winning_combinations {
-            let (row1, col1) = combination[0];
-            let (row2, col2) = combination[1];
-            let (row3, col3) = combination[2];
-
-            if let BoardState::Occupied(player) = board[row1][col1] {
-                if board[row2][col2] == BoardState::Occupied(player)
-                    && board[row3][col3] == BoardState::Occupied(player)
-                {
-                    return true;
-                }
-            }
-        }
-
-        false
-    }
-
-    fn check_for_winner(&mut self) {
-
-        if Game::Draw == self.game || Game::Winner == self.game {
-            return
-        }         
-
-        if TicTacToe::validate_winner(&self.board.state) {
-            self.message = format!("Player {} is the winner!!!!", match self.player {
-                Player::X => "O",
-                Player::O => "X",
+impl TicTacToe {    
+    fn  check_for_winner(&mut self) -> bool {
+        if self.board.check_win(self.player) {
+            self.message = format!("{} is the winner!!!!", match self.player {
+                Player::X => "X",
+                Player::O => "O",
+                Player::AI => "AI",
+                Player::Human => "Human",
             });
     
-            self.game = Game::Winner;
-            return 
+            self.game.status = Status::Winner;
+            return true;
         }
 
-        if self.play_count == 9 {
-            self.message = "Players, we have a draw.".to_string();
-            self.game = Game::Draw;
-            return 
+        if self.game.playing_count == 9 {
+            self.message = "We have a draw.".to_string();
+            self.game.status = Status::Draw;
+            return true
         }
 
-        self.message = format!("Player {}'s turn.", match self.player {
-            Player::X => "X",
-            Player::O => "O",
+        self.message = format!("{} turn.", match self.player {
+            Player::X => "O",
+            Player::O => "X",
+            Player::AI => "AI",
+            Player::Human => "Human",
+            
         });
+
+        return  false;
 
         
     }
+
+    fn make_ai_move(&mut self, index: usize) {
+
+        if self.board.cells[index].state == CellState::Empty && Status::Playing == self.game.status {
+            self.board.cells[index].color = theme::Color::AI;             
+            self.board.cells[index].state = CellState::Occupied(Player::AI);
+            self.game.playing_count += 1;
+            
+            if !self.check_for_winner() {
+                self.player = Player::Human;
+                self.check_for_winner();
+    
+            }
+        }
+    }
+
+    fn button_handler(&mut self, index: usize) {
+        if self.board.cells[index].state == CellState::Empty && Status::Playing == self.game.status {
+            let cell_state = match self.player {
+                Player::X => { 
+                    self.board.cells[index].color = theme::Color::PlayerX;
+                    CellState::Occupied(Player::X) 
+                },
+                Player::O => { 
+                    self.board.cells[index].color = theme::Color::PlayerO;
+                    CellState::Occupied(Player::O) 
+                },
+                Player::AI => { 
+                    self.board.cells[index].color = theme::Color::AI;
+                    CellState::Occupied(Player::AI) 
+                },
+                Player::Human => { 
+                    self.board.cells[index].color = theme::Color::Human;
+                    CellState::Occupied(Player::Human) 
+                },
+            };
+            self.board.cells[index].state = cell_state;
+            self.game.playing_count += 1;
+
+            self.check_for_winner();
+            self.player = match self.player {
+                Player::X => Player::O,
+                Player::O => Player::X,
+                Player::AI => Player::Human,
+                Player::Human => Player::AI,
+            };
+
+            if self.game.mode == Mode::OnePlayer && self.game.status == Status::Playing {
+                let mut ai_move = 0;
+                if self.game.level == Some(Level::Hard) {
+                    ai_move = Self::best_spot(&self.board);
+                }
+
+                self.make_ai_move(ai_move);
+
+            }
+
+            
+        }
+    }
+
+    fn best_spot(board: &Board) -> usize {
+        TicTacToe::minimax(board, Player::AI).index
+    }
+    
+    fn minimax(board: &Board, player: Player) -> Move {
+        let available_spots = board.available_moves();
+    
+        if board.check_win(Player::Human) {
+            return Move { score: -10, index: 0 };
+        } else if board.check_win(Player::AI) {
+            return Move { score: 10, index: 0 };
+        } else if available_spots.is_empty() {
+            return Move { score: 0, index: 0 };
+        }
+    
+        let mut moves = Vec::new();
+    
+        for &spot in &available_spots {
+            let mut new_board = board.clone();
+            new_board.make_move(spot, player);
+    
+            let result = Self::minimax(&new_board, match player {
+                Player::AI => Player::Human,
+                Player::Human => Player::AI,
+                _ => todo!(),
+            });
+    
+            moves.push(Move { score: result.score, index: spot });
+        }
+    
+        if player == Player::AI {
+            let best_move = moves.iter().max_by_key(|&&m| m.score).unwrap();
+            *best_move
+        } else {
+            let best_move = moves.iter().min_by_key(|&&m| m.score).unwrap();
+            *best_move
+        }
+    }
+    
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Message {
     ButtonPress(usize),
     Restart,
+    LevelChanged(Level),
+    ModeChanged(Mode),
 }
 
 impl Application for TicTacToe {
@@ -160,50 +325,46 @@ impl Application for TicTacToe {
     }
 
     fn title(&self) -> String {
-        "Tic Tac Toe".into()
+        "Tic Tac Toe with Iced".into()
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::Restart => {
+                let mode = self.game.mode.clone();
+                let level = self.game.level.clone();
                 *self = TicTacToe::default();
+                self.game.mode = mode;
+                self.game.level = level;
+                if self.game.mode == Mode::OnePlayer {
+                    self.player = Player::Human;
+                }
+                self.check_for_winner();
             }
             Message::ButtonPress(index) => {
-                let row = (index - 1) / 3;
-                let col = (index - 1) % 3;
-
-                if self.board.state[row][col] == BoardState::Empty && Game::Playing == self.game {
-                    let cell_state = match self.player {
-                        Player::X => { 
-                            self.board.color[index-1] = theme::Text::PlayerX;
-                            BoardState::Occupied(Player::X) 
-                        },
-                        Player::O => { 
-                            self.board.color[index-1] = theme::Text::PlayerO;
-                            BoardState::Occupied(Player::O) 
-                        },
-                    };
-                    self.board.state[row][col] = cell_state;
-                    self.player = match self.player {
-                        Player::X => Player::O,
-                        Player::O => Player::X,
-                    };
-                    self.play_count += 1;
-
-                    self.check_for_winner();
-                }
+                self.button_handler(index);
+            }
+            Message::ModeChanged(mode) => {
+                *self = TicTacToe::default();
+                self.player = Player::Human;
+                self.message = format!("{} turn.", "Human".to_string());
+                self.game.mode = mode;
+            }
+            Message::LevelChanged(level) => {
+                self.game.level = Some(level);
             }
         }
-
         Command::none()
     }
 
     fn view(&self) -> Element<Message> {
-        let board_button = |state: &BoardState, index: usize| -> Button<'_, Message, Renderer> {
+        let board_button = |state: &CellState, index: usize| -> Button<'_, Message, Renderer> {
             let bt_text = match state {
-                BoardState::Occupied(Player::X) => "X",
-                BoardState::Occupied(Player::O) => "O",
-                _ => "",
+                CellState::Occupied(Player::X) => "X",
+                CellState::Occupied(Player::O) => "O",
+                CellState::Occupied(Player::AI) => "X",
+                CellState::Occupied(Player::Human) => "O",
+                CellState::Empty => "",
             };
     
             Button::new(
@@ -211,16 +372,16 @@ impl Application for TicTacToe {
                     .horizontal_alignment(iced::alignment::Horizontal::Center)
                     .vertical_alignment(iced::alignment::Vertical::Center)
                     .size(TEXT_SIZE)
-                    .style(self.board.color[index-1]),
+                    .style(self.board.cells[index].color),
             )
             .width(BUTTON_SIZE)
             .height(BUTTON_SIZE)
-            .style(self.board.background[index-1])
+            .style(self.board.cells[index].background)
             .on_press(Message::ButtonPress(index))
         };
     
         let restart_button = Button::new(
-            Text::new("Restart")
+            Text::new("Start")
                 .horizontal_alignment(iced::alignment::Horizontal::Center)
                 .vertical_alignment(iced::alignment::Vertical::Center)
                 .size(TEXT_SIZE),
@@ -234,9 +395,9 @@ impl Application for TicTacToe {
             .vertical_alignment(iced::alignment::Vertical::Center)
             .size(30);
     
-        let board: Vec<Element<Message>> = self.board.state.iter().enumerate().map(|(row, row_board)| {
+        let board: Vec<Element<Message>> = self.board.cells.chunks_exact(3).enumerate().map(|(row, row_board)| {
             let row_buttons: Vec<Element<Message>> = row_board.iter().enumerate().map(|(col, cell_state)| {
-                let button = board_button(cell_state, row * 3 + col + 1);
+                let button = board_button(&cell_state.state, (row * 3 + col + 1) - 1);
                 button.into() // Convert Button to Element
             }).collect();
     
@@ -246,12 +407,55 @@ impl Application for TicTacToe {
                 .push(Row::with_children(row_buttons)) // Wrap the buttons in another Row
                 .into() // Convert Row to Element
         }).collect();
+
+        let mode: Row<'_, Message, Renderer>  =
+            [Mode::OnePlayer, Mode::TwoPlayers]
+                .iter()
+                .fold(
+                    row![Text::new("Mode:")].spacing(10),
+                    |mode, mode_sel| {
+                        mode.push(Radio::new(
+                            format!("{mode_sel:?}"),
+                            *mode_sel,
+                            Some(match self.game.mode {
+                                Mode::OnePlayer => Mode::OnePlayer,
+                                Mode::TwoPlayers => Mode::TwoPlayers,
+                            }),
+                            Message::ModeChanged,
+                        ))
+                    },
+                );
+
+
+
+        let level: Row<'_, Message, Renderer>  =
+            [Level::Easy, Level::Medium, Level::Hard]
+                .iter()
+                .fold(
+                    row![Text::new("Level:")].spacing(10),
+                    |level, level_sel| {
+                        level.push(Radio::new(
+                            format!("{level_sel:?}"),
+                            *level_sel,
+                            Some(match self.game.level {
+                                Some(Level::Easy) => Level::Easy,
+                                Some(Level::Medium) => Level::Medium,
+                                Some(Level::Hard) => Level::Hard,
+                                None => Level::Easy
+                            }),
+                            Message::LevelChanged,
+                        ))
+                    },
+                );
+
     
         let content = Column::new()
             .spacing(20)
             .align_items(iced::Alignment::Center)
             .push(message)
             .push(Column::with_children(board)) // Convert Vec<Element> to a single widget element
+            .push(mode)
+            .push(level)
             .push(restart_button);
     
         Container::new(content)
@@ -275,11 +479,12 @@ mod widget {
     pub type Button<'a, Message, Renderer> = iced::widget::Button<'a, Message, Renderer>;
     pub type Column<'a, Message, Renderer> = iced::widget::Column<'a, Message, Renderer>;
     pub type Row<'a, Message, Renderer> = iced::widget::Row<'a, Message, Renderer>;
+    pub type Radio<'a, Message, Renderer> = iced::widget::Radio<Message, Renderer>;
 }
 
 mod theme {
-    use iced::widget::{button, container, text};
-    use iced::{application, color, Background, BorderRadius, Color};
+    use iced::widget::{button, container, text, radio};
+    use iced::{application, color, Background as Theme_Background, BorderRadius, Color as Theme_Color};
 
     #[derive(Debug, Clone, Copy, Default)]
     pub struct Theme;
@@ -296,24 +501,28 @@ mod theme {
     }
 
     #[derive(Debug, Clone, Copy, Default)]
-    pub enum Text {
+    pub enum Color {
         #[default]
         Primary,
         PlayerX,
         PlayerO,
+        Human,
+        AI,
         #[allow(dead_code)]
         Winner
     }
 
     impl text::StyleSheet for Theme {
-        type Style = Text;
+        type Style = Color;
 
         fn appearance(&self, style: Self::Style) -> text::Appearance {
             match style {
-                Text::Primary => text::Appearance {color: color!(0xeb, 0xdb, 0xb2).into()},
-                Text::PlayerX => text::Appearance {color: Some(Color::from_rgb(250.0, 0.0, 0.0))},
-                Text::PlayerO => text::Appearance {color: Some(Color::from_rgb(0.0, 51.0, 0.0))},
-                Text::Winner => text::Appearance {color: color!(0xeb, 0xdb, 0xb2).into()},            
+                Color::Primary => text::Appearance {color: color!(0xeb, 0xdb, 0xb2).into()},
+                Color::PlayerX => text::Appearance {color: Some(Theme_Color::from_rgb(250.0, 0.0, 0.0))},
+                Color::PlayerO => text::Appearance {color: Some(Theme_Color::from_rgb(0.0, 51.0, 0.0))},
+                Color::Human => text::Appearance {color: Some(Theme_Color::from_rgb(250.0, 0.0, 0.0))},
+                Color::AI => text::Appearance {color: Some(Theme_Color::from_rgb(0.0, 51.0, 0.0))},
+                Color::Winner => text::Appearance {color: color!(0xeb, 0xdb, 0xb2).into()},            
             }
         }
     }
@@ -343,7 +552,7 @@ mod theme {
     }
 
     #[derive(Debug, Clone, Copy, Default)]
-    pub enum Button {
+    pub enum Background {
         #[default]
         Primary,
         #[allow(dead_code)]
@@ -351,35 +560,35 @@ mod theme {
     }
 
     impl button::StyleSheet for Theme {
-        type Style = Button;
+        type Style = Background;
         fn active(&self, style: &Self::Style) -> button::Appearance {
             match style {
-                Button::Primary => button::Appearance {
+                Background::Primary => button::Appearance {
                     border_radius: BorderRadius::from(4.0),
                     border_width: 1.0,
                     border_color: color!(0x45, 0x85, 0x88),
                     ..Default::default()
                 },
-                Button::Secondary => button::Appearance {
+                Background::Secondary => button::Appearance {
                     border_radius: BorderRadius::from(4.0),
                     border_width: 1.0,
                     border_color: color!(0x45, 0x85, 0x88),
-                    background: Some(Background::from(Color::from_rgb(60.0, 56.0, 54.0))),
+                    background: Some(Theme_Background::from(Theme_Color::from_rgb(60.0, 56.0, 54.0))),
                     ..Default::default()
                 },
             }
         }
         fn pressed(&self, style: &Self::Style) -> button::Appearance {
             match style {
-                Button::Primary => button::Appearance {
-                    background: Some(Background::from(Color::from_rgb(255.0, 255.0, 255.0))),
+                Background::Primary => button::Appearance {
+                    background: Some(Theme_Background::from(Theme_Color::from_rgb(255.0, 255.0, 255.0))),
                     border_radius: BorderRadius::from(4.0),
                     border_width: 1.0,
                     border_color: color!(0x45, 0x85, 0x88),
                     ..Default::default()
                 },
-                Button::Secondary => button::Appearance {
-                    background: Some(Background::from(Color::from_rgb(60.0, 56.0, 54.0))),
+                Background::Secondary => button::Appearance {
+                    background: Some(Theme_Background::from(Theme_Color::from_rgb(60.0, 56.0, 54.0))),
                     border_radius: BorderRadius::from(4.0),
                     border_width: 1.0,
                     border_color: color!(0x45, 0x85, 0x88),
@@ -388,4 +597,40 @@ mod theme {
             }
         }
     }
+
+    #[derive(Debug, Clone, Copy, Default)]
+    pub enum Radio {
+        #[default]
+        Primary,
+        #[allow(dead_code)]
+        Secondary,
+    }
+
+    impl radio::StyleSheet for Theme {
+        type Style = Radio;
+
+        fn active(&self, _style: &Self::Style, _is_selected: bool) -> radio::Appearance {
+            radio::Appearance { 
+                background: iced::Color::TRANSPARENT.into(),
+                dot_color: color!(0xeb, 0xdb, 0xb2).into(),
+                border_width: 1.0,
+                border_color: color!(0xeb, 0xdb, 0xb2).into(),
+                text_color: None,                
+             }
+        }
+
+        fn hovered(&self, _style: &Self::Style, _is_selected: bool) -> radio::Appearance {
+            radio::Appearance { 
+                background: iced::Color::TRANSPARENT.into(),
+                dot_color: color!(0xeb, 0xdb, 0xb2).into(),
+                border_width: 1.0,
+                border_color: color!(0xeb, 0xdb, 0xb2).into(),
+                text_color: None,                
+             }
+        }
+
+
+
+    }
+
 }
