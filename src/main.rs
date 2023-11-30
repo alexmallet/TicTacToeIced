@@ -1,3 +1,6 @@
+use rand;
+use rand::seq::SliceRandom; 
+
 use iced::widget::{Text, row};
 use iced::{executor, Application, Command, Length, Settings};
 use widget::{Row, Column, Renderer, Button, Container, Radio};
@@ -137,8 +140,8 @@ struct  Game {
 impl Default for Game {
     fn default() -> Self {
         Self { 
-            mode: Default::default(), 
-            level: None, 
+            mode: Mode::TwoPlayers, 
+            level: Some(Level::Easy), 
             status: Default::default(), 
             playing_count: Default::default() 
         }
@@ -252,9 +255,18 @@ impl TicTacToe {
             };
 
             if self.game.mode == Mode::OnePlayer && self.game.status == Status::Playing {
-                let mut ai_move = 0;
-                if self.game.level == Some(Level::Hard) {
-                    ai_move = Self::best_spot(&self.board);
+                let ai_move: usize;
+                match self.game.level  {
+                    Some(Level::Easy) => {
+                        ai_move = Self::free_spot(&self.board);                        
+                    }
+                    Some(Level::Medium) => {
+                        ai_move = Self::closest_spot(&self.board);                        
+                    }
+                    Some(Level::Hard) => {
+                        ai_move = Self::best_spot(&self.board);                        
+                    }
+                    _ => todo!(),
                 }
 
                 self.make_ai_move(ai_move);
@@ -264,6 +276,23 @@ impl TicTacToe {
             
         }
     }
+
+    fn free_spot(board: &Board) -> usize {
+        let available_spots = board.available_moves();
+        let free_spot: Vec<_> = available_spots
+            .choose_multiple(&mut rand::thread_rng(), 1)
+            .collect();
+        *free_spot[0]        
+    }
+
+    fn closest_spot(board: &Board) -> usize {
+        let available_spots = board.available_moves();
+        let free_spot: Vec<_> = available_spots
+            .choose_multiple(&mut rand::thread_rng(), 1)
+            .collect();
+        *free_spot[0]        
+    }
+
 
     fn best_spot(board: &Board) -> usize {
         TicTacToe::minimax(board, Player::AI).index
