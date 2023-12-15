@@ -3,6 +3,7 @@ use rand::seq::SliceRandom;
 
 use iced::widget::{Text, row};
 use iced::{executor, Application, Command, Length, Settings};
+use iced::window;
 use widget::{Row, Column, Renderer, Button, Container, Radio};
 
 use self::theme::Theme;
@@ -79,6 +80,23 @@ impl Board {
             .iter()
             .enumerate()
             .filter_map(|(i, &cell)| if cell.state == CellState::Empty { Some(i) } else { None })
+            .collect()
+    }
+
+    #[allow(dead_code)]    
+    fn ai_played_moves(&self) -> Vec<usize> {
+        self.cells
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &cell)| if cell.state == CellState::Occupied(Player::AI) { Some(i) } else { None })
+            .collect()
+    }
+
+    fn hu_played_moves(&self) -> Vec<usize> {
+        self.cells
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &cell)| if cell.state == CellState::Occupied(Player::Human) { Some(i) } else { None })
             .collect()
     }
 
@@ -261,7 +279,7 @@ impl TicTacToe {
                         ai_move = Self::free_spot(&self.board);                        
                     }
                     Some(Level::Medium) => {
-                        ai_move = Self::closest_spot(&self.board);                        
+                        ai_move = Self::closest_spot(&self.board, &self.game);                        
                     }
                     Some(Level::Hard) => {
                         ai_move = Self::best_spot(&self.board);                        
@@ -285,8 +303,76 @@ impl TicTacToe {
         *free_spot[0]        
     }
 
-    fn closest_spot(board: &Board) -> usize {
+    fn play_block(board: &Board) -> Option<usize> {
+        let win_combos = [
+            [0, 1, 2],
+            [3, 4, 5],
+            [6, 7, 8],
+            [0, 3, 6],
+            [1, 4, 7],
+            [2, 5, 8],
+            [0, 4, 8],
+            [6, 4, 2],
+        ];
+    
+        let played_two = win_combos.iter().position(|combo| {
+            combo.iter().filter(|&&pos| board.cells[pos].state == CellState::Occupied(Player::Human)).count() == 2
+        });
+    
+        let result = match played_two {
+            Some(0..=8) => win_combos[played_two.unwrap()]
+                .iter()
+                .find(|&&pos| board.cells[pos].state == CellState::Empty)
+                .cloned(),
+            _ => None,
+        };
+        
+        result
+    }
+    
+
+    fn closest_spot(board: &Board, game: &Game) -> usize {
         let available_spots = board.available_moves();
+        let hu_played_spots = board.hu_played_moves();
+        let play_block = Self::play_block(board);
+
+        if play_block != None {
+            return play_block.unwrap();
+        }
+
+        if hu_played_spots.contains(&4) && game.playing_count == 1 {
+                let free_spot: Vec<_> =  [0, 2, 6, 8].choose_multiple(&mut rand::thread_rng(), 1)
+                .collect();
+                return *free_spot[0];
+
+        }
+        if hu_played_spots.contains(&4) && game.playing_count == 3 {
+            if hu_played_spots.contains(&2) {
+                return  6;
+            } else if hu_played_spots.contains(&6){
+                return  2;
+            } else if hu_played_spots.contains(&0){
+                return  8;
+                
+            } else if hu_played_spots.contains(&8){
+                return  0;
+                
+            }
+        }
+        if !hu_played_spots.contains(&4) && game.playing_count == 1 {
+            return  4;
+        }
+        if !hu_played_spots.contains(&4) && game.playing_count == 3 {
+            if !hu_played_spots.contains(&1) {
+                return  1;
+            } else if !hu_played_spots.contains(&7) {
+                return  7;
+            } else if !hu_played_spots.contains(&3) {
+                return  3;
+            } else if !hu_played_spots.contains(&5) {
+                return  5;
+            } 
+        }
         let free_spot: Vec<_> = available_spots
             .choose_multiple(&mut rand::thread_rng(), 1)
             .collect();
@@ -350,7 +436,7 @@ impl Application for TicTacToe {
     type Theme = Theme;
 
     fn new(_flags: Self::Flags) -> (Self, Command<Message>) {
-        (TicTacToe::default(), Command::none())
+        (TicTacToe::default(), window::change_mode(iced::window::Mode::Fullscreen))
     }
 
     fn title(&self) -> String {
@@ -380,6 +466,11 @@ impl Application for TicTacToe {
                 self.game.mode = mode;
             }
             Message::LevelChanged(level) => {
+                let mode = self.game.mode.clone();
+                *self = TicTacToe::default();
+                self.game.mode = mode;
+                self.player = Player::Human;
+                self.message = format!("{} turn.", "Human".to_string());
                 self.game.level = Some(level);
             }
         }
@@ -391,8 +482,8 @@ impl Application for TicTacToe {
             let bt_text = match state {
                 CellState::Occupied(Player::X) => "X",
                 CellState::Occupied(Player::O) => "O",
-                CellState::Occupied(Player::AI) => "X",
-                CellState::Occupied(Player::Human) => "O",
+                CellState::Occupied(Player::AI) => "O",
+                CellState::Occupied(Player::Human) => "X",
                 CellState::Empty => "",
             };
     
@@ -410,7 +501,7 @@ impl Application for TicTacToe {
         };
     
         let restart_button = Button::new(
-            Text::new("Start")
+            Text::new("Restart")
                 .horizontal_alignment(iced::alignment::Horizontal::Center)
                 .vertical_alignment(iced::alignment::Vertical::Center)
                 .size(TEXT_SIZE),
@@ -484,7 +575,10 @@ impl Application for TicTacToe {
             .push(message)
             .push(Column::with_children(board)) // Convert Vec<Element> to a single widget element
             .push(mode)
-            .push(level)
+            .push(if self.game.mode == Mode::OnePlayer { level } else {Row::new()
+                .spacing(10)
+                .align_items(iced::Alignment::Center)
+                .into() })
             .push(restart_button);
     
         Container::new(content)
