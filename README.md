@@ -59,11 +59,11 @@ My intention in doing this was to enhance my understanding of Rust and Iced. How
 ## Features
 - [x] Two players game:
   * It offers a platform for two players to battle each other, with the game ending once a definitive winner is crowned or a draw is settled. 
-- [ ] Single player game:
+- [x] Single player game:
   * In single-player mode, the player competes against the computer. The game concludes either when a definitive winner is determined or when a draw is reached.
-  - [ ] Level Easy
-  - [ ] Level Medium
-  - [ ] Leve Hard 
+  - [x] Level Easy
+  - [x] Level Medium
+  - [x] Leve Hard 
 
 
 
